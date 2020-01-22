@@ -11,7 +11,6 @@ import java.io.NotSerializableException
 import java.lang.reflect.Method
 import java.lang.reflect.ParameterizedType
 import java.lang.reflect.Type
-import java.util.*
 import kotlin.collections.LinkedHashMap
 import kotlin.reflect.KFunction
 import kotlin.reflect.full.findAnnotation
@@ -37,6 +36,8 @@ internal data class LocalTypeInformationBuilder(val lookup: LocalTypeLookup,
                                                 var visited: Set<TypeIdentifier> = emptySet(),
                                                 val cycles: MutableList<LocalTypeInformation.Cycle> = mutableListOf(),
                                                 var validateProperties: Boolean = true) {
+    private val baseTypes = lookup.baseTypes
+
     /**
      * If we are examining the type of a read-only property, or a type flagged as [Opaque], then we do not need to warn
      * if the [LocalTypeInformation] for that type (or any of its related types) is [LocalTypeInformation.NonComposable].
@@ -94,10 +95,10 @@ internal data class LocalTypeInformationBuilder(val lookup: LocalTypeLookup,
 
     private fun buildForClass(type: Class<*>, typeIdentifier: TypeIdentifier, isOpaque: Boolean): LocalTypeInformation = withContext(type) {
         when {
-            Collection::class.java.isAssignableFrom(type) &&
-                    !EnumSet::class.java.isAssignableFrom(type) -> LocalTypeInformation.ACollection(type, typeIdentifier, LocalTypeInformation.Unknown)
-            Map::class.java.isAssignableFrom(type) -> LocalTypeInformation.AMap(type, typeIdentifier, LocalTypeInformation.Unknown, LocalTypeInformation.Unknown)
-            type == String::class.java -> LocalTypeInformation.Atomic(String::class.java, typeIdentifier)
+            baseTypes.collectionClass.isAssignableFrom(type) &&
+                    !baseTypes.enumSetClass.isAssignableFrom(type) -> LocalTypeInformation.ACollection(type, typeIdentifier, LocalTypeInformation.Unknown)
+            baseTypes.mapClass.isAssignableFrom(type) -> LocalTypeInformation.AMap(type, typeIdentifier, LocalTypeInformation.Unknown, LocalTypeInformation.Unknown)
+            type === baseTypes.stringClass -> LocalTypeInformation.Atomic(type, typeIdentifier)
             type.kotlin.javaPrimitiveType != null ->LocalTypeInformation.Atomic(type, typeIdentifier)
             type.isEnum -> LocalTypeInformation.AnEnum(
                     type,
@@ -116,7 +117,7 @@ internal data class LocalTypeInformationBuilder(val lookup: LocalTypeLookup,
                     type,
                     typeIdentifier,
                     suppressValidation { buildNonAtomic(type, type, typeIdentifier, emptyList()) })
-            Exception::class.java.isAssignableFrom(type.asClass()) -> suppressValidation {
+            baseTypes.exceptionClass.isAssignableFrom(type.asClass()) -> suppressValidation {
                 buildNonAtomic(type, type, typeIdentifier, emptyList())
             }
             else -> buildNonAtomic(type, type, typeIdentifier, emptyList())
@@ -138,10 +139,10 @@ internal data class LocalTypeInformationBuilder(val lookup: LocalTypeLookup,
             typeIdentifier: TypeIdentifier.Parameterised,
             isOpaque: Boolean): LocalTypeInformation = withContext(type) {
         when {
-            Collection::class.java.isAssignableFrom(rawType) &&
-                    !EnumSet::class.java.isAssignableFrom(rawType) ->
+            baseTypes.collectionClass.isAssignableFrom(rawType) &&
+                    !baseTypes.enumSetClass.isAssignableFrom(rawType) ->
                 LocalTypeInformation.ACollection(type, typeIdentifier, buildTypeParameterInformation(type)[0])
-            Map::class.java.isAssignableFrom(rawType) -> {
+            baseTypes.mapClass.isAssignableFrom(rawType) -> {
                 val (keyType, valueType) = buildTypeParameterInformation(type)
                 LocalTypeInformation.AMap(type, typeIdentifier, keyType, valueType)
             }
@@ -200,7 +201,7 @@ internal data class LocalTypeInformationBuilder(val lookup: LocalTypeLookup,
             observedType = type,
             typeIdentifier = typeIdentifier,
             constructor = null,
-            properties = if (rawType == Class::class.java) {
+            properties = if (rawType === Class::class.java) {
                 // Do NOT drill down into the internals of java.lang.Class.
                 emptyMap()
             } else {

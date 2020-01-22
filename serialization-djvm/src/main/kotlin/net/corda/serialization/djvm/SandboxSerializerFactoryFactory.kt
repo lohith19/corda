@@ -14,6 +14,7 @@ import net.corda.serialization.internal.amqp.SerializerFactory
 import net.corda.serialization.internal.amqp.SerializerFactoryFactory
 import net.corda.serialization.internal.amqp.WhitelistBasedTypeModelConfiguration
 import net.corda.serialization.internal.amqp.createClassCarpenter
+import net.corda.serialization.internal.model.BaseLocalTypes
 import net.corda.serialization.internal.model.ClassCarpentingTypeLoader
 import net.corda.serialization.internal.model.ConfigurableLocalTypeModel
 import net.corda.serialization.internal.model.SchemaBuildingRemoteTypeCarpenter
@@ -36,7 +37,8 @@ import java.util.function.Predicate
  * This has all been lovingly copied from [SerializerFactoryBuilder].
  */
 class SandboxSerializerFactoryFactory(
-    private val primitiveSerializerFactory: Function<Class<*>, AMQPSerializer<Any>>
+    private val primitiveSerializerFactory: Function<Class<*>, AMQPSerializer<Any>>,
+    private val localTypes: BaseLocalTypes
 ) : SerializerFactoryFactory {
 
     override fun make(context: SerializationContext): SerializerFactory {
@@ -65,7 +67,11 @@ class SandboxSerializerFactoryFactory(
         )
 
         val localTypeModel = ConfigurableLocalTypeModel(
-            WhitelistBasedTypeModelConfiguration(context.whitelist, customSerializerRegistry)
+            WhitelistBasedTypeModelConfiguration(
+                whitelist = context.whitelist,
+                customSerializerRegistry = customSerializerRegistry,
+                baseTypes = localTypes
+            )
         )
 
         val fingerPrinter = TypeModellingFingerPrinter(customSerializerRegistry)

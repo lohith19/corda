@@ -47,7 +47,7 @@ class LocalTypeModelTest : TestBase(KOTLIN) {
     @Test
     fun testString() = sandbox {
         _contextSerializationEnv.set(createSandboxSerializationEnv(classLoader))
-        assertLocalType<Opaque>(sandbox<String>(classLoader))
+        assertLocalType<Atomic>(sandbox<String>(classLoader))
     }
 
     @Test

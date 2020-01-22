@@ -14,6 +14,8 @@ import net.corda.serialization.internal.SerializationContextImpl
 import net.corda.serialization.internal.SerializationFactoryImpl
 import net.corda.serialization.internal.amqp.AMQPSerializer
 import net.corda.serialization.internal.amqp.amqpMagic
+import net.corda.serialization.internal.model.BaseLocalTypes
+import java.util.EnumSet
 import java.util.function.Function
 
 @Suppress("NOTHING_TO_INLINE")
@@ -49,13 +51,23 @@ fun createSandboxSerializationEnv(
          PrimitiveSerializer(clazz, sandboxBasicInput)
     }
 
+    val sandboxLocalTypes = BaseLocalTypes(
+        collectionClass = classLoader.toSandboxClass(Collection::class.java),
+        enumSetClass = classLoader.toSandboxClass(EnumSet::class.java),
+        exceptionClass = classLoader.toSandboxClass(Exception::class.java),
+        mapClass = classLoader.toSandboxClass(Map::class.java),
+        stringClass = classLoader.toSandboxClass(String::class.java)
+    )
     val schemeBuilder = SandboxSerializationSchemeBuilder(
         classLoader = classLoader,
         sandboxBasicInput = sandboxBasicInput,
         rawTaskFactory = rawTaskFactory,
         customSerializerClassNames = customSerializerClassNames,
         serializationWhitelistNames = serializationWhitelistNames,
-        serializerFactoryFactory = SandboxSerializerFactoryFactory(primitiveSerializerFactory)
+        serializerFactoryFactory = SandboxSerializerFactoryFactory(
+            primitiveSerializerFactory = primitiveSerializerFactory,
+            localTypes = sandboxLocalTypes
+        )
     )
     val factory = SerializationFactoryImpl(mutableMapOf()).apply {
         registerScheme(schemeBuilder.buildFor(p2pContext))
